@@ -1,1 +1,255 @@
-# QA_GURU_BELEVTSEVA_HW_11
+# Jenkins. Создаем первую задачу и управляем параметрами Python
+
+# Что это такое?
+Jenkins — система для обеспечения процесса непрерывной интеграции (CI) программного обеспечения. 
+Jenkins написан на Java и у инструмента открытый исходный код.
+
+Репозиторий [[ссылка](https://github.com/jenkins-infra/jenkins.io)]
+
+Сайт [[ссылка](https://www.jenkins.io/)]
+
+# Как обычно происходит процесс запуска тестов:
+
+* Локально
+![img.png](images/img.png)
+
+* Удаленно
+![img_1.png](images/img_1.png)
+
+* Создаём задачу/джобу в Jenkins
+
+Для создания новой задачи необходимо на главной странице(Dashboard) Jenkins кликнуть на кнопку ```New Item.```
+![img_2.png](images/img_2.png)
+
+Далее указать её название и выбрать тип ```Freestyle project.```Нажимаем ```OK.```
+![img_3.png](images/img_3.png)
+
+Далее переходим во вкладку ```Configure.```
+![img_4.png](images/img_4.png)
+
+# Настраиваем задачу
+Так как на сервере могут работать несколько агентов под разные задачи, то во время настройки задачи необходимо указать актуального Jenkins-агента.
+В нашем случае мы запускаем тесты на Python, поэтому переходим в настройки задачи, ставим галочку в поле ```Restrict where this project can be run``` и в поле ```Label Expression``` вводим ```python.```
+
+![img_5.png](images/img_5.png)
+
+В блоке``` Source Code Management ```выбираем ```Git``` и в строку ```Repository URL``` вставляем ссылку на репозиторий. 
+Немного проскролив ниже к блокублоке``` Branches to build``` в поле ввода блоке```Branch Specifier``` указываем ветку, которую будем тестировать.
+
+Важно! По умолчанию в поле ```Branch Specifier``` указана ветка ```*master```, что означает, что ```Jenkins``` будет тестировать эту ветку. 
+Если у вас ветка ```main``` или любая другая, то необходимо указать ее заменив значение.
+
+После этого необходимо добавить шаги сборки.
+Переходим к блоку ```Build Environment.``` В разделе ```Build Steps ```кликаем на ```Add build step``` и в выпадающем списке кликаем на  ```Execute shell.```
+![img_6.png](images/img_6.png)
+
+В появившемся поле вводим следующий скрипт для установки виртуального окружения и запуска тестов которые используют requirements.txt:
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest .
+```
+Если в проекте используется poetry, то скрипт будет выглядеть следующим образом:
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install poetry 
+poetry install
+pytest .
+```
+Чтобы добавить ```Allure-отчёт``` переходим к блоку ```Post-build Actions```, выбираем и кликаем на``` Add post-build action``` и в выпадающем списке кликаем на ```Allure Report.```
+В поле ```Path``` проверяем, чтобы путь указывал на правильную директорию в проекте, а именно на ```allure-results.```
+Нажимаем ```Save ```для сохранения настроек.
+
+![img_7.png](images/img_7.png)
+![img_8.png](images/img_8.png)
+
+# Добавляем аттачменты
+Jenkins в паре с Allure позволяет автоматически запускать тесты и снабжать их подробными отчётами с различными аттачментами: логи, скриншоты, скринкасты, исходный код страницы и другое.
+
+Для этого необходимо сперва добавить некоторые утилиты в код тестов.
+Для этого в директории utils в проекте создаем файл ```attach.py``` и пропишем в нём реализацию аттачментов:
+```
+import allure
+from allure_commons.types import AttachmentType
+
+# Скриншоты
+def add_screenshot(browser):
+    png = browser.driver.get_screenshot_as_png()
+    allure.attach(body=png, name='screenshot', attachment_type=AttachmentType.PNG, extension='.png')
+
+# логи
+def add_logs(browser):
+    log = "".join(f'{text}\n' for text in browser.driver.get_log(log_type='browser'))
+    allure.attach(log, 'browser_logs', AttachmentType.TEXT, '.log')
+
+# html-код страницы
+def add_html(browser):
+    html = browser.driver.page_source
+    allure.attach(html, 'page_source', AttachmentType.HTML, '.html')
+```
+В коде тестов можно вызывать эти функции для добавления необходимых аттачей. 
+
+К примеру:
+```
+attach.add_html(browser)
+attach.add_screenshot(browser)
+attach.add_logs(browser)
+```
+
+# Selenoid
+Для добавления Selenoid в проект переходим во вкладку ```Capabilities,``` выбираем Python и копируем код.
+
+![img_9.png](images/img_9.png)
+
+Далее код необходимо модернизировать:
+```
+options = Options()
+selenoid_capabilities = {
+    "browserName": "chrome",
+    "browserVersion": "100.0",
+    "selenoid:options": {
+        "enableVNC": True,
+        "enableVideo": False
+    }
+}
+
+options.capabilities,update(selenoid_capabilities)
+driver = webdriver.Remote(
+    command_executor=f"https://{selenoid_login}:{selenoid_pass}@{selenoid_url}/wd/hub",
+    options=options)
+
+browser.config.driver = driver
+```
+# Добавляем видео
+Для добавления видео заменим параметр ```enableVideo``` из кода выше на True:
+```
+options = Options()
+selenoid_capabilities = {
+    "browserName": "chrome",
+    "browserVersion": "100.0",
+    "selenoid:options": {
+        "enableVNC": True,
+        "enableVideo": True
+    }
+}
+
+options.capabilities,update(selenoid_capabilities)
+driver = webdriver.Remote(
+    command_executor=f"https://{selenoid_login}:{selenoid_pass}@{selenoid_url}/wd/hub",
+    options=options)
+
+browser.config.driver = driver
+```
+Далее в файле ```attach.py``` добавим соответствующую функцию:
+
+```
+# скринкаст
+def add_video(browser):
+    video_url = f"{selenoid_url}/video/" + browser.driver.session_id + ".mp4"
+    html = "<html><body><video width='100%' height='100%' controls autoplay><source src='" \
+           + video_url \
+           + "' type='video/mp4'></video></body></html>"
+    allure.attach(html, 'video_' + browser.driver.session_id, AttachmentType.HTML, '.html')
+```
+Добавить видео в коде теста можно следующим образом:
+```
+attach.add_video(browser)
+```
+# Добавляем .env
+
+Для безопасного хранения конфиденциальной информации, такой как логины, пароли, ключи и т.д., в проекте создаем файл `````.env``` и прописываем в нем переменные:
+```
+SELENOID_LOGIN=login
+SELENOID_PASS=password
+SELENOID_URL=selenoid_url
+```
+Вместо ```login```, ```password``` и ```selenoid_url``` прописываем свои значения.
+Данный файл храниться в ```.gitignore``` и не попадает в репозиторий.
+
+Для работы с переменными из файла ```.env ```в коде тестов устанавливаем библиотеку ```python-dotenv:```
+```
+pip install python-dotenv
+```
+В файле conftest.py прописываем:
+```
+from dotenv import load_dotenv
+import os
+
+@pytest.fixture(scope="session", autouse=True)
+def load_env():
+    load_dotenv()
+
+selenoid_login = os.getenv("SELENOID_LOGIN")
+selenoid_pass = os.getenv("SELENOID_PASS")
+selenoid_url = os.getenv("SELENOID_URL")
+```
+# Добавляем .env в Jenkins
+Для того чтобы Jenkins мог использовать переменные из файла ```.env``` необходимо их добавить в него. 
+Для этого в блоке ```Build Steps``` и кликаем на ```Add build step``` и в выпадающем списке кликаем на ```Create/Update Text File.```
+
+![img_10.png](images/img_10.png)
+
+В появившемся окне в поле ```File Path``` вводим ``` .env```, а в поле ```Text File Content``` прописываем переменные из файла ```.env.``` 
+Обязательно указываем отметки ```в Create at Workspace``` и ```Overwrite file.```
+
+Важно! Блок с ```.env``` всегда должен быть выше блока с ```Execute shell.```
+Нажимаем ```Save``` для сохранения настроек.
+![img_11.png](images/img_11.png)
+# Добавляем параметризацию
+Для добавления параметризации необходимо в блоке ```General``` поставить галочку в поле``` This project is parameterized``` и выбрать тип параметра.
+![img_12.png](images/img_12.png)
+Если выбрать параметр ```String Parameter``` то в поле``` Name``` вводим имя переменной, а в поле ```Default Value``` вводим значение переменной которое будет использоваться по умолчанию.
+
+![img_13.png](images/img_13.png)
+Если выбрать параметр ```Choice Parameter``` то в поле ```Name``` вводим имя переменной, а в поле ```Choices``` вводим значения переменной в столбик.
+А в поле ```Description``` вводим описание переменной.
+![img_14.png](images/img_14.png)
+
+При добавлении параметризации в команде запуска тестов необходимо указать переменные. 
+Пример реализации если в коде указаны реализация парсера версии браузера и в jenkins реализуем выбор нужной версии:
+```
+pytest  --browser_version=${BROWSER_VERSION}
+```
+Если необходимо добавить несколько переменных, то в команде запуска тестов указываем их через пробел.
+
+Если необходимо запустить определенную папку с тестами, то это можно реализовать следующим образом:
+![img_15.png](images/img_15.png)
+
+Команда запуска тестов будет выглядеть следующим образом:
+```
+pytest ${TESTS_TYPE}
+```
+Если добавляются параметры, которые не влияют на запуск тестов или на конфигурацию, то изменять команду запуска не нужно.
+
+# Изменяем количество отображающихся билдов/прогонов тестов
+Для изменения количества отображающихся билдов/прогонов тестов в блоке``` General``` ставим отметку ```Discard old builds.``` 
+В поле ```Max # of builds to keep``` вводим количество отображаемых билдов/прогонов тестов.
+![img_16.png](images/img_16.png)
+# Добавляем таймер для запуска тестов
+Для добавления таймера для запуска тестов в блоке ```Build Triggers``` ставим отметку ```Build periodically.```
+В поле ```Schedule``` вводим время запуска тестов.
+Для этого можно использовать следующие команды:
+
+Запускать тесты каждый день в 12:00:
+```
+H 12 * * *
+```
+Запускать тесты каждый понедельник в 12:00:
+```
+H 12 * * 1
+```
+Запускать тесты каждый час:
+```
+H * * * *
+```
+![img_17.png](images/img_17.png)
+# Клонирование проекта
+Для клонирования проекта необходимо перейти на главной странице(Dashboard) Jenkins кликнуть на кнопку ```New Item.```
+Указать имя для проекта. Проскролить ниже к блоку``` Copy from``` и в поле ```Name``` вводим имя проекта, который будем клонировать. 
+Из выпадающего списка выбираем проект, который будем клонировать. Нажимаем ```OK.```
+![img_18.png](images/img_18.png)
+
+
+
