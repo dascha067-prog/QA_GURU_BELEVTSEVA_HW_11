@@ -12,6 +12,8 @@ class PracticeFormPage:
     FIRST_NAME = (By.ID, "firstName")
     LAST_NAME = (By.ID, "lastName")
     USER_EMAIL = (By.ID, "userEmail")
+    GENDER_FEMALE = (By.XPATH, "//label[@for='gender-radio-2']")
+    MOBILE = (By.ID, "userNumber")
     SUBMIT = (By.ID, "submit")
 
     def fill_first_name(self, value: str):
@@ -22,6 +24,12 @@ class PracticeFormPage:
 
     def fill_email(self, value: str):
         self.driver.find_element(*self.USER_EMAIL).send_keys(value)
+
+    def fill_gender_female(self):
+        self.driver.find_element(*self.GENDER_FEMALE).click()
+
+    def fill_mobile(self, value: str):
+        self.driver.find_element(*self.MOBILE).send_keys(value)
 
     def submit(self):
         submit_button = self.driver.find_element(*self.SUBMIT)
