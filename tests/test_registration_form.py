@@ -19,5 +19,11 @@ def test_practice_form(setup_browser):
     with allure.step("Заполнить email"):
         form.fill_email("test@example.com")
 
+    with allure.step("Выбрать пол"):
+        form.fill_gender_female()
+
+    with allure.step("Заполнить мобильный номер"):
+        form.fill_mobile("1234567890")
+
     with allure.step("Отправить форму"):
         form.submit()
