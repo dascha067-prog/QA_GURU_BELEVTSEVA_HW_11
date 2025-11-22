@@ -1,21 +1,29 @@
-from selene import browser
+from selenium.webdriver.common.by import By
 
 
 class PracticeFormPage:
 
-    def open(self):
-        browser.open("https://demoqa.com/automation-practice-form")
-        return self
+    def __init__(self, driver):
+        self.driver = driver
 
-    def fill(self):
-        browser.element("#firstName").type("Daria")
-        browser.element("#lastName").type("QA")
-        browser.element("#userEmail").type("daria@example.com")
-        browser.element("//label[text()='Female']").click()
-        browser.element("#userNumber").type("8911123456")
-        browser.element("#currentAddress").type("Saint-Petersburg")
-        return self
+    def open(self):
+        self.driver.get("https://demoqa.com/automation-practice-form")
+
+    FIRST_NAME = (By.ID, "firstName")
+    LAST_NAME = (By.ID, "lastName")
+    USER_EMAIL = (By.ID, "userEmail")
+    SUBMIT = (By.ID, "submit")
+
+    def fill_first_name(self, value: str):
+        self.driver.find_element(*self.FIRST_NAME).send_keys(value)
+
+    def fill_last_name(self, value: str):
+        self.driver.find_element(*self.LAST_NAME).send_keys(value)
+
+    def fill_email(self, value: str):
+        self.driver.find_element(*self.USER_EMAIL).send_keys(value)
 
     def submit(self):
-        browser.element("#submit").click()
-        return self
+        submit_button = self.driver.find_element(*self.SUBMIT)
+        self.driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
+        submit_button.click()

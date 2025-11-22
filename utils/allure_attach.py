@@ -35,4 +35,3 @@ def add_video(driver):
     )
 
     allure.attach(html, f"video_{driver.session_id}", AttachmentType.HTML, ".html")
-
