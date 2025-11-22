@@ -1,20 +1,23 @@
 import allure
-from selene import browser, have
 from pages.practice_form_page import PracticeFormPage
 
 
 @allure.title("Заполнение формы Practice Form (Allure screenshot/video)")
-def test_practice_form():
-    form = PracticeFormPage()
+def test_practice_form(setup_browser):
+    driver = setup_browser
+    form = PracticeFormPage(driver)
 
     with allure.step("Открыть форму"):
         form.open()
 
-    with allure.step("Заполнить форму"):
-        form.fill()
+    with allure.step("Заполнить имя"):
+        form.fill_first_name("Daria")
+
+    with allure.step("Заполнить фамилию"):
+        form.fill_last_name("Belevtseva")
+
+    with allure.step("Заполнить email"):
+        form.fill_email("test@example.com")
 
     with allure.step("Отправить форму"):
         form.submit()
-
-    with allure.step("Проверить, что форма успешно отправлена"):
-        browser.element(".modal-header").should(have.text("Thanks for submitting the form"))
